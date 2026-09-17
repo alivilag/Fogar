@@ -1,4 +1,5 @@
 import streamlit as st
+from modules import brain_dump
 import streamlit.components.v1 as components
 # Importaciones modulares simuladas
 # from utils.db import init_supabase
@@ -101,11 +102,7 @@ def main():
 
     with tab5:
         st.header("Buzón de Descarga Mental")
-        st.write("Escribe aquí lo que no quieres olvidar o discutir ahora. Sin juicios.")
-        note = st.text_area("Nueva nota", label_visibility="collapsed", placeholder="Tengo que revisar el recibo de la luz...")
-        if st.button("Guardar en el buzón"):
-            # brain_dump.save_note(note)
-            st.success("Nota guardada. Mente libre. 🍃")
+        brain_dump.render_ui()
 
     with tab6:
         st.header("Cofre de Dopamina")
