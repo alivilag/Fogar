@@ -64,24 +64,6 @@ st.markdown("""
     .stTextInput>div>div>input, .stNumberInput>div>div>input {
         border-radius: 12px;
     }
-    /* Forzar cuadrícula en móviles y estandarizar tamaño */
-    @media (max-width: 768px) {
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 0.5rem !important;
-        }
-        [data-testid="column"] {
-            width: 33.33% !important;
-            flex: 1 1 33.33% !important;
-            min-width: 30% !important;
-        }
-        .stButton>button {
-            font-size: 0.85em !important; /* Ajuste para que quepa el texto */
-            height: 6em !important;
-            padding: 0.5rem !important;
-        }
-    }
     </style>
 """, unsafe_allow_html=True)
 
