@@ -8,8 +8,13 @@ st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered
 def inject_pwa_manifest():
     components.html(
         """<script>
-            const link = document.createElement('link'); link.rel = 'manifest';
-            link.href = '/app/public/manifest.json'; document.head.appendChild(link);
+            const parentDoc = window.parent.document;
+            if (!parentDoc.querySelector('link[rel="manifest"]')) {
+                const link = parentDoc.createElement('link'); 
+                link.rel = 'manifest';
+                link.href = '/app/static/manifest.json'; 
+                parentDoc.head.appendChild(link);
+            }
         </script>""", height=0
     )
 
