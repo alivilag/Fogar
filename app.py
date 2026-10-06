@@ -23,15 +23,17 @@ st.markdown("""
     /* Botones minimalistas, redondeados y con sombras suaves */
     .stButton>button { 
         width: 100%; 
-        border-radius: 24px; 
-        height: 5em; 
+        border-radius: 20px; 
+        height: 5.5em; 
         font-weight: 600; 
-        font-size: 1.05em; 
+        font-size: 1.1em; 
         background-color: #FFFFFF;
         border: 2px solid #F4F6F9;
         color: #555555;
         box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         transition: all 0.2s ease-in-out;
+        white-space: pre-wrap; /* Permite saltos de línea */
+        line-height: 1.3;
     }
     .stButton>button:hover { 
         transform: translateY(-2px); 
@@ -97,37 +99,24 @@ def main():
         show_module(st.session_state.current_page)
 
 def show_home_dashboard():
-    # Encabezado visual e intuitivo
-    st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; color: #FF9999; margin-bottom: 2rem;'>¿Qué necesitas hacer? ✨</h1>", unsafe_allow_html=True)
+    # Título compacto
+    st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px; font-size: 0.9em;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1rem; margin-top: 0px;'>Nuestra Casa ✨</h2>", unsafe_allow_html=True)
     
-    # 1. Bloque de Convivencia
-    st.markdown("<h4 style='color: #4A4A4A; font-weight: 600;'>🏠 Gestión de Casa</h4>", unsafe_allow_html=True)
+    # Cuadrícula 2x3 estilo App Móvil
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("✅ Tareas"): st.session_state.current_page = "tasks"; st.rerun()
+        if st.button("✅\nTareas"): st.session_state.current_page = "tasks"; st.rerun()
+        if st.button("💰\nFinanzas"): st.session_state.current_page = "finance"; st.rerun()
+        if st.button("📥\nDescarga"): st.session_state.current_page = "brain_dump"; st.rerun()
     with col2:
-        if st.button("🍽️ Comidas"): st.session_state.current_page = "meals"; st.rerun()
-        
-    # 2. Bloque Personal
-    st.markdown("<br><h4 style='color: #4A4A4A; font-weight: 600;'>👤 Área Personal</h4>", unsafe_allow_html=True)
-    col3, col4 = st.columns(2)
-    with col3:
-        if st.button("💰 Finanzas"): st.session_state.current_page = "finance"; st.rerun()
-    with col4:
-        if st.button("🩸 Ciclo"): st.session_state.current_page = "cycle"; st.rerun()
-        
-    # 3. Bloque de Bienestar y Configuración
-    st.markdown("<br><h4 style='color: #4A4A4A; font-weight: 600;'>🍃 Bienestar y Ajustes</h4>", unsafe_allow_html=True)
-    col5, col6 = st.columns(2)
-    with col5:
-        if st.button("📥 Descarga"): st.session_state.current_page = "brain_dump"; st.rerun()
-    with col6:
-        if st.button("👥 Mis Hogares"): st.session_state.current_page = "households"; st.rerun()
+        if st.button("🍽️\nComidas"): st.session_state.current_page = "meals"; st.rerun()
+        if st.button("🩸\nCiclo"): st.session_state.current_page = "cycle"; st.rerun()
+        if st.button("👥\nHogares"): st.session_state.current_page = "households"; st.rerun()
     
     st.divider()
     
-    # Centrar y reducir el impacto visual del botón de salida
+    # Salida discreta
     _, col_exit, _ = st.columns([1, 2, 1])
     with col_exit:
         if st.button("Cerrar Sesión", type="secondary"):
