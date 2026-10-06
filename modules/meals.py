@@ -32,7 +32,7 @@ def render_ui():
         with col_comida:
             st.subheader("Comidas")
             for dia in dias_semana:
-                key = f"{dia}_Comida"
+                key = f"{dia}_Comida"3
                 nuevos_platos[key] = st.text_input(dia, value=menu_db.get(key, ""), key=key)
                 
         with col_cena:
@@ -73,7 +73,7 @@ def render_ui():
         with st.spinner("Analizando recetas y organizando pasillos..."):
             try:
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-3.1-pro')
+                model = genai.GenerativeModel('gemini-3.8-flash')
                 
                 prompt = f"""
                 A partir de la siguiente lista de platos, extrae los ingredientes necesarios para hacer la compra.
