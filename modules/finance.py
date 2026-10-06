@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.db import supabase
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 import pandas as pd
 import altair as alt
@@ -87,8 +87,8 @@ def add_transaction_form():
             
             description = st.text_input("Descripción (Ej. Compra súper)")
             
-            modificar_fecha = st.checkbox("Modificar fecha (por defecto hoy)")
-            fecha_input = st.date_input("Fecha del movimiento", value=date.today()) if modificar_fecha else date.today()
+            # Fecha directa por defecto hoy
+            fecha_input = st.date_input("Fecha del movimiento", value=date.today())
             
             is_common = False
             if tipo == "gasto" and st.session_state.household_id and st.session_state.household_id != "personal":
@@ -111,6 +111,31 @@ def add_transaction_form():
                     
                     if split_mode == 'Manual' and str(my_id) in split_pcts:
                         my_pct = float(split_pcts[str(my_id)])
+                    elif split_mode in ['Proporcional a ingresos del mes anterior', 'Proporcional a balance del mes anterior']:
+                        hoy = date.today()
+                        primer_dia_este_mes = hoy.replace(day=1)
+                        ultimo_dia_mes_pasado = primer_dia_este_mes - timedelta(days=1)
+                        primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
+                        
+                        inicio_prev = f"{primer_dia_mes_pasado}T00:00:00"
+                        fin_prev = f"{ultimo_dia_mes_pasado}T23:59:59"
+                        
+                        res_prev = supabase.table("transactions").select("user_id, amount, type, category").in_("user_id", miembros).gte("created_at", inicio_prev).lte("created_at", fin_prev).execute()
+                        
+                        if split_mode == 'Proporcional a ingresos del mes anterior':
+                            ing_my = sum(t['amount'] for t in res_prev.data if t['user_id'] == my_id and t['type'] == 'ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
+                            ing_tot = sum(t['amount'] for t in res_prev.data if t['type'] == 'ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
+                            my_pct = (ing_my / ing_tot * 100) if ing_tot > 0 else 50.0
+                        else:
+                            balances = {u: 0.0 for u in miembros}
+                            for t in res_prev.data:
+                                if t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]:
+                                    diff = t['amount'] if t['type'] == 'ingreso' else -t['amount']
+                                    balances[t['user_id']] += diff
+                            
+                            val_my = max(0, balances[my_id])
+                            val_tot = sum(max(0, balances[u]) for u in miembros)
+                            my_pct = (val_my / val_tot * 100) if val_tot > 0 else 50.0
                     else:
                         my_pct = 50.0
                     other_pct = 100.0 - my_pct
@@ -182,12 +207,27 @@ def render_personal_finances():
     col1.metric("Ingresos Reales", f"{ingresos_reales:.2f} €")
     col2.metric("Gastos Reales", f"{gastos_reales:.2f} €")
     col3.metric("Balance Real", f"{balance_real:.2f} €", delta=f"{balance_real:.2f} €")
-    
-    # Filtrar categorías técnicas para las gráficas de consumo real
-    categorias_tecnicas = ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]
-    movs_consumo = [m for m in movs if m['category'] not in categorias_tecnicas]
-    
-    if movs_consumo:
+
+    # Recordatorio de deudas pendientes debajo de las métricas
+    if st.session_state.household_id and st.session_state.household_id != "personal":
+        members_res = supabase.table("household_members").select("user_id, users(name)").eq("household_id", st.session_state.household_id).execute()
+        nombres = {m['user_id']: m['users']['name'] for m in members_res.data}
+        res_deudas = supabase.table("transactions").select("*").eq("household_id", st.session_state.household_id).in_("category", ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]).execute()
+        
+        deuda_mia = 0.0
+        for t in res_deudas.data:
+            if t['user_id'] == st.session_state.user.id:
+                if t['category'] == "Cuentas por cobrar": deuda_mia += t['amount']
+                elif t['category'] == "Cuentas por pagar": deuda_mia -= t['amount']
+                elif t['category'] == "Liquidación":
+                    deuda_mia += t['amount'] if t['type'] == 'gasto' else -t['amount']
+        
+        if deuda_mia > 0.01:
+            st.caption(f"🟢 **Te deben {deuda_mia:.2f} €** en el hogar.")
+        elif deuda_mia < -0.01:
+            st.caption(f"🔴 **Debes {abs(deuda_mia):.2f} €** a {next(n for u, n in nombres.items() if u != st.session_state.user.id)}.")
+
+    if movs_reales:
         st.divider()
         if mes != 0:
             st.write("**Gráficos de Consumo Real**")
@@ -195,32 +235,33 @@ def render_personal_finances():
             
             if tipo_grafico == "Gastos":
                 cat_gastos = {}
-                for m in movs_consumo:
+                for m in movs_reales:
                     if m['type'] == 'gasto':
                         cat_gastos[m['category']] = cat_gastos.get(m['category'], 0) + m['amount']
                 plot_pie_chart(cat_gastos, "Categoría", "Consumo (€)")
             else:
                 desc_ingresos = {}
-                for m in movs_consumo:
+                for m in movs_reales:
                     if m['type'] == 'ingreso':
                         desc_ingresos[m['description']] = desc_ingresos.get(m['description'], 0) + m['amount']
                 plot_pie_chart(desc_ingresos, "Descripción", "Ingreso (€)")
         else:
-            st.write("**Evolución de Consumo Real del Año**")
-            data_anual = {m: {'Ingresos': 0.0, 'Gastos': 0.0} for m in range(1, 13)}
-            for m in movs_consumo:
+            # Gráfico de Neto Anual
+            st.write("**Evolución de Balance Neto Anual**")
+            data_anual = {m: {'Neto': 0.0} for m in range(1, 13)}
+            for m in movs_reales:
                 mes_mov = int(m['created_at'][5:7])
                 if m['type'] == 'ingreso':
-                    data_anual[mes_mov]['Ingresos'] += m['amount']
+                    data_anual[mes_mov]['Neto'] += m['amount']
                 else:
-                    data_anual[mes_mov]['Gastos'] += m['amount']
+                    data_anual[mes_mov]['Neto'] -= m['amount']
                     
             df_anual = pd.DataFrame.from_dict(data_anual, orient='index')
             df_anual.index.name = 'Mes'
-            st.bar_chart(df_anual, color=["#2e7b32", "#c62828"])
+            st.bar_chart(df_anual)
 
-    with st.expander("Ver lista de movimientos (Incluye técnicos)"):
-        for m in sorted(movs, key=lambda x: x['created_at'], reverse=True):
+    with st.expander("Ver lista de movimientos"):
+        for m in sorted(movs_reales, key=lambda x: x['created_at'], reverse=True): # Iteramos sobre reales para ocultar los técnicos
             icon = "🔴" if m['type'] == "gasto" else "🟢"
             fecha_corta = m['created_at'][:10]
             st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {m['amount']} €")
@@ -299,7 +340,7 @@ def render_household_finances():
         return
 
     with st.expander("⚙️ Configuración de Reparto de Gastos"):
-        modos = ['50/50', 'Manual']
+        modos = ['50/50', 'Manual', 'Proporcional a ingresos del mes anterior', 'Proporcional a balance del mes anterior']
         nuevo_modo = st.selectbox("Modo de reparto", modos, index=modos.index(split_mode) if split_mode in modos else 0)
         
         nuevos_pcts = split_pcts
@@ -371,31 +412,47 @@ def render_household_finances():
 
     # CONSUMO COMPARTIDO DEL PERÍODO
     fecha_inicio, fecha_fin, titulo = get_date_range(mes, anio)
-    res_trans = supabase.table("transactions").select("*").in_("user_id", u_ids).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).execute()
+    res_trans = supabase.table("transactions").select("*").in_("user_id", u_ids).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).eq("is_common", True).execute()
     
-    # Extraemos solo el consumo real generado (ignoramos préstamos/liquidaciones)
-    gastos_comunes_lista = [t for t in res_trans.data if t['is_common'] and t['type'] == 'gasto' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]]
-    total_comun = sum(t['amount'] for t in gastos_comunes_lista)
+    # Agrupamos los asientos para reconstruir el ticket original y saber quién pagó
+    tickets = {}
+    for t in res_trans.data:
+        if t['type'] == 'gasto':
+            clave = t['created_at']
+            if clave not in tickets:
+                tickets[clave] = {"pagador": None, "total": 0.0, "desc": "", "cat": ""}
+            
+            # Si no tiene la muletilla "(Adelantado por compañer@)", este apunte es del que pagó físicamente
+            if "(Adelantado por compañer@)" not in t['description']:
+                tickets[clave]["pagador"] = t['user_id']
+                tickets[clave]["total"] += t['amount']
+                if t['category'] != "Cuentas por cobrar":
+                    tickets[clave]["desc"] = t['description']
+                    tickets[clave]["cat"] = t['category']
+                elif not tickets[clave]["desc"]:
+                    tickets[clave]["desc"] = t['description'].replace("Préstamo a la casa por ", "")
+
+    total_comun = sum(d["total"] for d in tickets.values())
 
     st.subheader(f"Consumo Común: {titulo}")
     st.write(f"**Gasto Total Compartido Generado:** {total_comun:.2f} €")
 
-    if gastos_comunes_lista:
+    if tickets:
         if mes != 0:
             cat_comunes = {}
-            for m in gastos_comunes_lista:
-                cat_comunes[m['category']] = cat_comunes.get(m['category'], 0) + m['amount']
+            for d in tickets.values():
+                cat_comunes[d['cat']] = cat_comunes.get(d['cat'], 0) + d['total']
             plot_pie_chart(cat_comunes, "Categoría", "Total (€)")
         else:
             data_comunes_anual = {m: 0.0 for m in range(1, 13)}
-            for m in gastos_comunes_lista:
-                mes_mov = int(m['created_at'][5:7])
-                data_comunes_anual[mes_mov] += m['amount']
-                
+            for clave, d in tickets.items():
+                mes_mov = int(clave[5:7])
+                data_comunes_anual[mes_mov] += d['total']
             df_comunes = pd.DataFrame(list(data_comunes_anual.items()), columns=["Mes", "Gasto (€)"]).set_index("Mes")
             st.bar_chart(df_comunes)
 
-        with st.expander("Ver lista de gastos comunes (Solo consumo)"):
-            for m in sorted(gastos_comunes_lista, key=lambda x: x['created_at'], reverse=True):
-                fecha_corta = m['created_at'][:10]
-                st.write(f"*{fecha_corta}* - **{miembros[m['user_id']]}** consumió {m['amount']} € en *{m['description']}*")
+        with st.expander("Ver lista de gastos comunes"):
+            for clave, data in sorted(tickets.items(), key=lambda x: x[0], reverse=True):
+                if data["pagador"]:
+                    fecha_corta = clave[:10]
+                    st.write(f"*{fecha_corta}* - **{miembros[data['pagador']]}** pagó {data['total']:.2f} € en *{data['desc']}*")
