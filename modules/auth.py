@@ -2,7 +2,7 @@ import streamlit as st
 from utils.db import supabase
 
 def login_ui():
-    st.title("Bienvenido a Nuestra Casa 🏠")
+    st.title("Bienvenido a Fogar 🏠")
     
     tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
     
