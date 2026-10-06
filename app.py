@@ -101,7 +101,7 @@ def main():
 def show_home_dashboard():
     # Título compacto
     st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px; font-size: 0.9em;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1.5rem; margin-top: 0px;'>Nuestra Casa ✨</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1.5rem; margin-top: 0px;'>Fogar ✨</h2>", unsafe_allow_html=True)
     
     # Cuadrícula 3x2 (3 columnas x 2 filas)
     col1, col2, col3 = st.columns(3)
