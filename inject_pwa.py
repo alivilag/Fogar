@@ -1,32 +1,40 @@
 import os
 import re
+import shutil
 import streamlit as st
 
-index_path = os.path.join(os.path.dirname(st.__file__), "static", "index.html")
+# 1. Encontrar la carpeta núcleo de Streamlit
+st_dir = os.path.dirname(st.__file__)
+st_static_dir = os.path.join(st_dir, "static")
+index_path = os.path.join(st_static_dir, "index.html")
 
+# 2. Copiar tus archivos a la raíz del servidor interno de Streamlit
+shutil.copy("static/assets/manifest.json", st_static_dir)
+shutil.copy("static/assets/icon-192.png", st_static_dir)
+shutil.copy("static/assets/icon-512.png", st_static_dir)
+shutil.copy("static/sw.js", st_static_dir)
+
+# 3. Etiquetas limpias apuntando a la raíz absoluta (/)
 pwa_tags = """
-<link rel="manifest" href="/app/static/assets/manifest.json">
-<link rel="shortcut icon" href="/app/static/assets/icon-192.png">
-<link rel="apple-touch-icon" href="/app/static/assets/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="shortcut icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/app/static/sw.js').catch(function(err) {
-                console.log('Error SW:', err);
-            });
+            navigator.serviceWorker.register('/sw.js');
         });
     }
 </script>
 """
 
+# 4. Leer, limpiar iconos por defecto e inyectar
 with open(index_path, "r", encoding="utf-8") as f:
     html = f.read()
 
-# Eliminar iconos por defecto de Streamlit
 html = re.sub(r'<link rel="shortcut icon"[^>]*>', '', html)
 html = re.sub(r'<link rel="apple-touch-icon"[^>]*>', '', html)
 
-# Inyectar configuración PWA
 if 'rel="manifest"' not in html:
     html = html.replace("</head>", f"{pwa_tags}\n</head>")
     with open(index_path, "w", encoding="utf-8") as f:
