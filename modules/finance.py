@@ -5,10 +5,34 @@ import calendar
 import pandas as pd
 import altair as alt
 
+def check_monthly_savings_history(user_id):
+    hoy = date.today()
+    primer_dia_este_mes = hoy.replace(day=1)
+    ultimo_dia_mes_pasado = primer_dia_este_mes - timedelta(days=1)
+    
+    # Comprobar si ya existe registro para el mes pasado
+    res = supabase.table("savings_history").select("id").eq("user_id", user_id).eq("date", ultimo_dia_mes_pasado.isoformat()).execute()
+    
+    if not res.data:
+        # Sumar ahorros actuales
+        res_savings = supabase.table("savings").select("amount").eq("user_id", user_id).execute()
+        total = sum(s['amount'] for s in res_savings.data) if res_savings.data else 0.0
+        
+        # Guardar en el historial
+        supabase.table("savings_history").insert({
+            "user_id": user_id,
+            "date": ultimo_dia_mes_pasado.isoformat(),
+            "total_amount": total
+        }).execute()
+
 def render_ui():
     st.header("Finanzas 💰")
     
+    # Ejecutar guardado automático silencioso
+    check_monthly_savings_history(st.session_state.user.id)
+    
     tab_add, tab_personal, tab_savings, tab_home = st.tabs(["➕ Nuevo", "👤 Mis Finanzas", "🏦 Ahorros", "🏠 Cuentas del Hogar"])
+    # ... resto del código sin cambios ...
     
     with tab_add:
         add_transaction_form()
@@ -259,7 +283,23 @@ def render_personal_finances():
             df_anual = pd.DataFrame.from_dict(data_anual, orient='index')
             df_anual.index.name = 'Mes'
             st.bar_chart(df_anual)
+    # Este código va al mismo nivel de indentación que "if movs_reales:"
+        
+        # Extraer objetivo
+        res_user = supabase.table("users").select("monthly_savings_goal").eq("id", st.session_state.user.id).execute()
+        goal = res_user.data[0].get("monthly_savings_goal", 0.0) if res_user.data else 0.0
 
+        if goal > 0 and mes != 0:
+            st.divider()
+            st.write(f"**Progreso del Objetivo (Neto Mensual):** {balance_real:.2f} € / {goal:.2f} €")
+            progreso = max(0.0, min(balance_real / goal, 1.0))
+            
+            # Color verde si se supera, azul si está en proceso
+            if balance_real >= goal:
+                st.success("¡Objetivo mensual superado! 🎉")
+            
+            st.progress(progreso)
+            
     with st.expander("Ver lista de movimientos"):
         for m in sorted(movs_reales, key=lambda x: x['created_at'], reverse=True):
             icon = "🔴" if m['type'] == "gasto" else "🟢"
@@ -309,21 +349,31 @@ def render_savings():
                 
     st.divider()
     
-    st.write("**Evolución de Liquidez por Mes (Flujo Neto)**")
-    anio_actual = datetime.now().year
-    inicio_anio = f"{anio_actual}-01-01T00:00:00"
-    res_movs = supabase.table("transactions").select("*").eq("user_id", st.session_state.user.id).gte("created_at", inicio_anio).execute()
+    st.divider()
     
-    data_ahorro_anual = {m: 0.0 for m in range(1, 13)}
-    for m in res_movs.data:
-        mes_mov = int(m['created_at'][5:7])
-        if m['type'] == 'ingreso':
-            data_ahorro_anual[mes_mov] += m['amount']
-        else:
-            data_ahorro_anual[mes_mov] -= m['amount']
-            
-    df_ahorro = pd.DataFrame(list(data_ahorro_anual.items()), columns=["Mes", "Ahorrado (€)"]).set_index("Mes")
-    st.bar_chart(df_ahorro)
+    st.write("**Evolución del Ahorro Total**")
+    res_hist = supabase.table("savings_history").select("*").eq("user_id", st.session_state.user.id).order("date").execute()
+    
+    if res_hist.data:
+        df_hist = pd.DataFrame(res_hist.data)
+        df_hist['date'] = pd.to_datetime(df_hist['date']).dt.strftime('%b %Y')
+        st.line_chart(df_hist.set_index('date')['total_amount'])
+    else:
+        st.info("El historial gráfico aparecerá aquí automáticamente al finalizar este mes.")
+
+    st.divider()
+    
+    # Configuración de objetivo mensual
+    with st.expander("🎯 Configurar Objetivo de Ahorro Mensual"):
+        res_user = supabase.table("users").select("monthly_savings_goal").eq("id", st.session_state.user.id).execute()
+        current_goal = res_user.data[0].get("monthly_savings_goal", 0.0) if res_user.data else 0.0
+        
+        with st.form("goal_form"):
+            new_goal = st.number_input("Objetivo de Neto Mensual (€)", min_value=0.0, value=float(current_goal), step=50.0)
+            if st.form_submit_button("Guardar Objetivo"):
+                supabase.table("users").update({"monthly_savings_goal": new_goal}).eq("id", st.session_state.user.id).execute()
+                st.success("Objetivo actualizado.")
+                st.rerun()
 
 def render_household_finances():
     mes, anio = get_period_selectors('house')
