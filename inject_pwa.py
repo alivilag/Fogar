@@ -8,13 +8,6 @@ pwa_tags = """
 <link rel="manifest" href="/app/static/assets/manifest.json">
 <link rel="shortcut icon" href="/app/static/assets/icon-192.png">
 <link rel="apple-touch-icon" href="/app/static/assets/icon-192.png">
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/app/static/assets/sw.js');
-        });
-    }
-</script>
 """
 
 with open(index_path, "r", encoding="utf-8") as f:
