@@ -11,15 +11,18 @@ def inject_pwa_manifest():
             const parent = window.parent;
             const parentDoc = parent.document;
             
-            // Inyectar Manifest
-            if (!parentDoc.querySelector('link[rel="manifest"]')) {
-                const link = parentDoc.createElement('link'); 
-                link.rel = 'manifest';
-                link.href = '/app/static/manifest.json'; 
-                parentDoc.head.appendChild(link);
+            // 1. Sobrescribir el manifest de Streamlit si existe, o crearlo si no
+            let manifestLink = parentDoc.querySelector('link[rel="manifest"]');
+            if (manifestLink) {
+                manifestLink.href = '/app/static/manifest.json';
+            } else {
+                manifestLink = parentDoc.createElement('link'); 
+                manifestLink.rel = 'manifest';
+                manifestLink.href = '/app/static/manifest.json'; 
+                parentDoc.head.appendChild(manifestLink);
             }
             
-            // Registrar Service Worker
+            // 2. Registrar Service Worker
             if ('serviceWorker' in parent.navigator) {
                 parent.navigator.serviceWorker.register('/app/static/sw.js');
             }
