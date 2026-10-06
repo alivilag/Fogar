@@ -9,9 +9,9 @@ st_static_dir = os.path.join(st_dir, "static")
 index_path = os.path.join(st_static_dir, "index.html")
 
 # 2. Copiar tus archivos a la raíz del servidor interno de Streamlit
-shutil.copy("static/assets/manifest.json", st_static_dir)
-shutil.copy("static/assets/icon-192.png", st_static_dir)
-shutil.copy("static/assets/icon-512.png", st_static_dir)
+shutil.copy("static/manifest.json", st_static_dir)
+shutil.copy("icon-192.png", st_static_dir)
+shutil.copy("icon-512.png", st_static_dir)
 shutil.copy("static/sw.js", st_static_dir)
 
 # 3. Etiquetas limpias apuntando a la raíz absoluta (/)
