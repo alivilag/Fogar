@@ -417,7 +417,8 @@ def render_household_finances():
     # Agrupamos los asientos para reconstruir el ticket original y saber quién pagó
     tickets = {}
     for t in res_trans.data:
-        if t['type'] == 'gasto':
+        # Añadida condición para ignorar las liquidaciones de deudas
+        if t['type'] == 'gasto' and t['category'] != 'Liquidación':
             clave = t['created_at']
             if clave not in tickets:
                 tickets[clave] = {"pagador": None, "total": 0.0, "desc": "", "cat": ""}
