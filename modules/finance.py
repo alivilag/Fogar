@@ -63,6 +63,16 @@ def plot_pie_chart(data_dict, name_col, val_col):
     )
     st.altair_chart(chart, use_container_width=True)
 
+def actualizar_ahorros(user_id, diff):
+    res_savings = supabase.table("savings").select("*").eq("user_id", user_id).execute()
+    ahorros = res_savings.data
+    if len(ahorros) == 1:
+        new_amount = ahorros[0]['amount'] + diff
+        supabase.table("savings").update({"amount": new_amount}).eq("id", ahorros[0]['id']).execute()
+        st.info(f"Ahorros actualizados automáticamente: {new_amount:.2f} €")
+    elif len(ahorros) > 1:
+        st.warning("⚠️ Tienes varias cuentas de ahorro. Ajusta el saldo manualmente.")
+
 def add_transaction_form():
     with st.container(border=True):
         with st.form("transaction_form", clear_on_submit=True):
@@ -87,33 +97,67 @@ def add_transaction_form():
             if st.form_submit_button("Guardar Movimiento", use_container_width=True):
                 created_at = datetime.combine(fecha_input, datetime.min.time()).isoformat()
                 
-                data = {
-                    "user_id": st.session_state.user.id,
-                    "type": tipo,
-                    "amount": amount,
-                    "category": category,
-                    "description": description,
-                    "is_common": is_common,
-                    "household_id": st.session_state.household_id if is_common else None,
-                    "created_at": created_at
-                }
-                try:
-                    supabase.table("transactions").insert(data).execute()
-                    st.success("Movimiento registrado.")
+                if is_common:
+                    # LÓGICA DOBLE ASIENTO
+                    hh_res = supabase.table("households").select("*").eq("id", st.session_state.household_id).execute()
+                    split_pcts = hh_res.data[0].get('split_percentages', {})
+                    split_mode = hh_res.data[0].get('split_mode', '50/50')
                     
-                    res_savings = supabase.table("savings").select("*").eq("user_id", st.session_state.user.id).execute()
-                    ahorros = res_savings.data
+                    members_res = supabase.table("household_members").select("user_id").eq("household_id", st.session_state.household_id).execute()
+                    miembros = [m['user_id'] for m in members_res.data]
                     
-                    if len(ahorros) == 1:
-                        diff = amount if tipo == 'ingreso' else -amount
-                        new_amount = ahorros[0]['amount'] + diff
-                        supabase.table("savings").update({"amount": new_amount}).eq("id", ahorros[0]['id']).execute()
-                        st.info(f"Ahorros actualizados automáticamente: {new_amount:.2f} €")
-                    elif len(ahorros) > 1:
-                        st.warning("⚠️ Tienes varias cuentas de ahorro. Recuerda ir a la pestaña 'Ahorros' para ajustar el saldo manualmente.")
+                    my_id = st.session_state.user.id
+                    other_ids = [u for u in miembros if u != my_id]
+                    
+                    if split_mode == 'Manual' and str(my_id) in split_pcts:
+                        my_pct = float(split_pcts[str(my_id)])
+                    else:
+                        my_pct = 50.0
+                    other_pct = 100.0 - my_pct
+                    
+                    my_amount = amount * (my_pct / 100)
+                    other_amount = amount * (other_pct / 100)
+                    
+                    data_list = []
+                    # 1. Gasto real del pagador
+                    if my_amount > 0:
+                        data_list.append({"user_id": my_id, "type": "gasto", "amount": my_amount, "category": category, "description": description, "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                    
+                    # 2. Préstamo a terceros (baja liquidez del pagador, no afecta gráficas consumo)
+                    if other_amount > 0:
+                        data_list.append({"user_id": my_id, "type": "gasto", "amount": other_amount, "category": "Cuentas por cobrar", "description": f"Préstamo a la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
                         
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
+                        for o_id in other_ids:
+                            # 3. Gasto real del no-pagador (se añade automáticamente a su consumo)
+                            data_list.append({"user_id": o_id, "type": "gasto", "amount": other_amount, "category": category, "description": f"{description} (Adelantado por compañer@)", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                            # 4. Deuda del no-pagador (Ingreso ficticio para mantener su liquidez intacta hasta que pague)
+                            data_list.append({"user_id": o_id, "type": "ingreso", "amount": other_amount, "category": "Cuentas por pagar", "description": f"Deuda con la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                    
+                    try:
+                        supabase.table("transactions").insert(data_list).execute()
+                        st.success("Gasto común dividido y registrado en todas las cuentas.")
+                        actualizar_ahorros(my_id, -amount) # Solo baja la liquidez real del que paga
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
+                else:
+                    # MOVIMIENTO INDIVIDUAL
+                    data = {
+                        "user_id": st.session_state.user.id,
+                        "type": tipo,
+                        "amount": amount,
+                        "category": category,
+                        "description": description,
+                        "is_common": False,
+                        "household_id": None,
+                        "created_at": created_at
+                    }
+                    try:
+                        supabase.table("transactions").insert(data).execute()
+                        st.success("Movimiento registrado.")
+                        diff = amount if tipo == 'ingreso' else -amount
+                        actualizar_ahorros(st.session_state.user.id, diff)
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
 
 def render_personal_finances():
     mes, anio = get_period_selectors('pers')
@@ -124,61 +168,57 @@ def render_personal_finances():
     res = supabase.table("transactions").select("*").eq("user_id", st.session_state.user.id).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).execute()
     movs = res.data
     
+    # Balance Real (Incluye préstamos y deudas para reflejar liquidez real en cuenta)
     ingresos = sum(m['amount'] for m in movs if m['type'] == 'ingreso')
     gastos = sum(m['amount'] for m in movs if m['type'] == 'gasto')
     balance = ingresos - gastos
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Ingresos", f"{ingresos:.2f} €")
-    col2.metric("Gastos", f"{gastos:.2f} €")
-    col3.metric("Neto", f"{balance:.2f} €", delta=f"{balance:.2f} €")
+    col1.metric("Ingresos/Entradas", f"{ingresos:.2f} €")
+    col2.metric("Gastos/Salidas", f"{gastos:.2f} €")
+    col3.metric("Neto (Liquidez)", f"{balance:.2f} €", delta=f"{balance:.2f} €")
     
-    if movs:
+    # Filtrar categorías técnicas para las gráficas de consumo real
+    categorias_tecnicas = ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]
+    movs_consumo = [m for m in movs if m['category'] not in categorias_tecnicas]
+    
+    if movs_consumo:
         st.divider()
         if mes != 0:
-            st.write("**Gráficos por categoría**")
+            st.write("**Gráficos de Consumo Real**")
             tipo_grafico = st.radio("Selecciona:", ["Gastos", "Ingresos"], horizontal=True)
             
             if tipo_grafico == "Gastos":
                 cat_gastos = {}
-                for m in movs:
+                for m in movs_consumo:
                     if m['type'] == 'gasto':
                         cat_gastos[m['category']] = cat_gastos.get(m['category'], 0) + m['amount']
-                plot_pie_chart(cat_gastos, "Categoría", "Total (€)")
+                plot_pie_chart(cat_gastos, "Categoría", "Consumo (€)")
             else:
                 desc_ingresos = {}
-                for m in movs:
+                for m in movs_consumo:
                     if m['type'] == 'ingreso':
                         desc_ingresos[m['description']] = desc_ingresos.get(m['description'], 0) + m['amount']
-                plot_pie_chart(desc_ingresos, "Descripción", "Total (€)")
+                plot_pie_chart(desc_ingresos, "Descripción", "Ingreso (€)")
         else:
-            st.write("**Evolución Mensual del Año**")
-            data_anual = {m: {'Ingresos': 0.0, 'Gastos': 0.0, 'Neto': 0.0} for m in range(1, 13)}
-            for m in movs:
+            st.write("**Evolución de Consumo Real del Año**")
+            data_anual = {m: {'Ingresos': 0.0, 'Gastos': 0.0} for m in range(1, 13)}
+            for m in movs_consumo:
                 mes_mov = int(m['created_at'][5:7])
                 if m['type'] == 'ingreso':
                     data_anual[mes_mov]['Ingresos'] += m['amount']
                 else:
                     data_anual[mes_mov]['Gastos'] += m['amount']
                     
-            for m in range(1, 13):
-                data_anual[m]['Neto'] = data_anual[m]['Ingresos'] - data_anual[m]['Gastos']
-                
             df_anual = pd.DataFrame.from_dict(data_anual, orient='index')
             df_anual.index.name = 'Mes'
-            
-            st.write("*Ingresos por mes*")
-            st.bar_chart(df_anual['Ingresos'], color="#2e7b32")
-            st.write("*Gastos por mes*")
-            st.bar_chart(df_anual['Gastos'], color="#c62828")
-            st.write("*Neto por mes*")
-            st.bar_chart(df_anual['Neto'])
+            st.bar_chart(df_anual, color=["#2e7b32", "#c62828"])
 
-        with st.expander("Ver lista de movimientos"):
-            for m in sorted(movs, key=lambda x: x['created_at'], reverse=True):
-                icon = "🔴" if m['type'] == "gasto" else "🟢"
-                fecha_corta = m['created_at'][:10]
-                st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {m['amount']} €")
+    with st.expander("Ver lista de movimientos (Incluye técnicos)"):
+        for m in sorted(movs, key=lambda x: x['created_at'], reverse=True):
+            icon = "🔴" if m['type'] == "gasto" else "🟢"
+            fecha_corta = m['created_at'][:10]
+            st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {m['amount']} €")
 
 def render_savings():
     st.subheader("Mis Cuentas de Ahorro")
@@ -222,8 +262,7 @@ def render_savings():
                 
     st.divider()
     
-    # Gráfico de evolución de ahorros (Flujo Neto Anual)
-    st.write("**Evolución de Ahorros por Mes (Basado en Neto de este año)**")
+    st.write("**Evolución de Liquidez por Mes (Flujo Neto)**")
     anio_actual = datetime.now().year
     inicio_anio = f"{anio_actual}-01-01T00:00:00"
     res_movs = supabase.table("transactions").select("*").eq("user_id", st.session_state.user.id).gte("created_at", inicio_anio).execute()
@@ -255,8 +294,8 @@ def render_household_finances():
         return
 
     with st.expander("⚙️ Configuración de Reparto de Gastos"):
-        modos = ['50/50', 'Manual', 'Proporcional a ingresos', 'Proporcional a balance']
-        nuevo_modo = st.selectbox("Modo de reparto", modos, index=modos.index(split_mode))
+        modos = ['50/50', 'Manual']
+        nuevo_modo = st.selectbox("Modo de reparto", modos, index=modos.index(split_mode) if split_mode in modos else 0)
         
         nuevos_pcts = split_pcts
         if nuevo_modo == 'Manual':
@@ -264,7 +303,7 @@ def render_household_finances():
             col1, col2 = st.columns(2)
             u_ids = list(miembros.keys())
             
-            p1 = col1.number_input(f"% de {miembros[u_ids[0]]}", min_value=0, max_value=100, value=split_pcts.get(u_ids[0], 50))
+            p1 = col1.number_input(f"% de {miembros[u_ids[0]]}", min_value=0, max_value=100, value=int(split_pcts.get(u_ids[0], 50)))
             p2 = col2.number_input(f"% de {miembros[u_ids[1]]}", min_value=0, max_value=100, value=100-p1, disabled=True)
             nuevos_pcts = {u_ids[0]: p1, u_ids[1]: 100-p1}
 
@@ -273,77 +312,76 @@ def render_household_finances():
             st.success("Configuración actualizada")
             st.rerun()
 
-    fecha_inicio, fecha_fin, titulo = get_date_range(mes, anio)
-    
     u_ids = list(miembros.keys())
-    res_trans = supabase.table("transactions").select("*").in_("user_id", u_ids).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).execute()
-    todas_trans = res_trans.data
 
-    ingresos = {u: 0.0 for u in u_ids}
-    gastos_indiv = {u: 0.0 for u in u_ids}
-    pagos_comunes = {u: 0.0 for u in u_ids}
-    gastos_comunes_lista = []
+    # CÁLCULO DE DEUDAS (Requiere historial completo, sin filtro de fecha)
+    res_deudas = supabase.table("transactions").select("*").in_("user_id", u_ids).in_("category", ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]).execute()
     
-    for t in todas_trans:
+    deudas_netas = {u: 0.0 for u in u_ids}
+    for t in res_deudas.data:
         u = t['user_id']
-        if t['type'] == 'ingreso':
-            ingresos[u] += t['amount']
-        elif t['type'] == 'gasto':
-            if t['is_common']:
-                pagos_comunes[u] += t['amount']
-                gastos_comunes_lista.append(t)
-            else:
-                gastos_indiv[u] += t['amount']
+        if t['category'] == "Cuentas por cobrar": deudas_netas[u] += t['amount']
+        elif t['category'] == "Cuentas por pagar": deudas_netas[u] -= t['amount']
+        elif t['category'] == "Liquidación":
+            if t['type'] == 'ingreso': deudas_netas[u] -= t['amount']
+            elif t['type'] == 'gasto': deudas_netas[u] += t['amount']
 
-    total_comun = sum(pagos_comunes.values())
-    
-    porcentajes = {u: 50.0 for u in u_ids}
-    if split_mode == 'Manual':
-        porcentajes = {u: split_pcts.get(str(u), 50) for u in u_ids}
-    elif split_mode == 'Proporcional a ingresos':
-        total_ingresos = sum(ingresos.values())
-        if total_ingresos > 0:
-            porcentajes = {u: (ingresos[u] / total_ingresos) * 100 for u in u_ids}
-    elif split_mode == 'Proporcional a balance':
-        balances = {u: max(0, ingresos[u] - gastos_indiv[u]) for u in u_ids}
-        total_balance = sum(balances.values())
-        if total_balance > 0:
-            porcentajes = {u: (balances[u] / total_balance) * 100 for u in u_ids}
-
-    st.subheader(f"Cuentas Comunes: {titulo}")
-    st.write(f"**Gasto Total Compartido:** {total_comun:.2f} €")
-    
-    st.write("**Proporciones aplicadas en este período:**")
-    for u in u_ids:
-        st.write(f"- {miembros[u]}: {porcentajes[u]:.1f}%")
-
-    st.divider()
-    
     st.subheader("📈 Balance de Deudas")
     for u in u_ids:
-        cuota = total_comun * (porcentajes[u] / 100)
-        pagado = pagos_comunes[u]
-        diferencia = pagado - cuota
-        
-        st.write(f"**{miembros[u]}** ha pagado: {pagado:.2f} € (Debería: {cuota:.2f} €)")
-        
-        if diferencia > 0.01:
-            st.success(f"↳ Le deben {abs(diferencia):.2f} €")
-        elif diferencia < -0.01:
-            st.error(f"↳ Debe {abs(diferencia):.2f} €")
+        neto = deudas_netas[u]
+        if neto > 0.01:
+            st.success(f"↳ A **{miembros[u]}** le deben {neto:.2f} €")
+        elif neto < -0.01:
+            st.error(f"↳ **{miembros[u]}** debe {abs(neto):.2f} €")
         else:
-            st.info("↳ Está en paz.")
+            st.info(f"↳ **{miembros[u]}** está en paz.")
+
+    # FORMULARIO DE LIQUIDACIÓN
+    deudores = [u for u in u_ids if deudas_netas[u] < -0.01]
+    acreedores = [u for u in u_ids if deudas_netas[u] > 0.01]
+    
+    if deudores and acreedores:
+        with st.expander("💸 Saldar Deuda"):
+            with st.form("settle_debt_form"):
+                col1, col2 = st.columns(2)
+                from_u = col1.selectbox("Quién paga", deudores, format_func=lambda x: miembros[x])
+                to_u = col2.selectbox("A quién", acreedores, format_func=lambda x: miembros[x])
+                
+                max_debt = min(abs(deudas_netas[from_u]), deudas_netas[to_u])
+                settle_amount = st.number_input("Cantidad a saldar (€)", min_value=0.01, max_value=float(max_debt), value=float(max_debt), step=10.0)
+                
+                if st.form_submit_button("Saldar Deuda"):
+                    timestamp = datetime.now().isoformat()
+                    # Salida de liquidez del deudor
+                    supabase.table("transactions").insert({"user_id": from_u, "type": "gasto", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación a {miembros[to_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
+                    # Entrada de liquidez al acreedor
+                    supabase.table("transactions").insert({"user_id": to_u, "type": "ingreso", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación de {miembros[from_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
+                    
+                    actualizar_ahorros(from_u, -settle_amount)
+                    actualizar_ahorros(to_u, settle_amount)
+                    st.success("Deuda saldada correctamente.")
+                    st.rerun()
+
+    st.divider()
+
+    # CONSUMO COMPARTIDO DEL PERÍODO
+    fecha_inicio, fecha_fin, titulo = get_date_range(mes, anio)
+    res_trans = supabase.table("transactions").select("*").in_("user_id", u_ids).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).execute()
+    
+    # Extraemos solo el consumo real generado (ignoramos préstamos/liquidaciones)
+    gastos_comunes_lista = [t for t in res_trans.data if t['is_common'] and t['type'] == 'gasto' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]]
+    total_comun = sum(t['amount'] for t in gastos_comunes_lista)
+
+    st.subheader(f"Consumo Común: {titulo}")
+    st.write(f"**Gasto Total Compartido Generado:** {total_comun:.2f} €")
 
     if gastos_comunes_lista:
-        st.divider()
         if mes != 0:
-            st.write("**Gráfico de Gastos Comunes por Categoría**")
             cat_comunes = {}
             for m in gastos_comunes_lista:
                 cat_comunes[m['category']] = cat_comunes.get(m['category'], 0) + m['amount']
             plot_pie_chart(cat_comunes, "Categoría", "Total (€)")
         else:
-            st.write("**Evolución Anual de Gastos Comunes**")
             data_comunes_anual = {m: 0.0 for m in range(1, 13)}
             for m in gastos_comunes_lista:
                 mes_mov = int(m['created_at'][5:7])
@@ -352,7 +390,7 @@ def render_household_finances():
             df_comunes = pd.DataFrame(list(data_comunes_anual.items()), columns=["Mes", "Gasto (€)"]).set_index("Mes")
             st.bar_chart(df_comunes)
 
-        with st.expander("Ver lista de gastos comunes"):
+        with st.expander("Ver lista de gastos comunes (Solo consumo)"):
             for m in sorted(gastos_comunes_lista, key=lambda x: x['created_at'], reverse=True):
                 fecha_corta = m['created_at'][:10]
-                st.write(f"*{fecha_corta}* - **{miembros[m['user_id']]}** pagó {m['amount']} € en *{m['description']}*")
+                st.write(f"*{fecha_corta}* - **{miembros[m['user_id']]}** consumió {m['amount']} € en *{m['description']}*")
