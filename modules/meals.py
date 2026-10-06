@@ -17,13 +17,20 @@ def generate_word_document(lista_texto):
 
 def render_ui():
     st.header("Menú Semanal 🍽️")
-    household_id = str(st.session_state.household_id)
     
-    # 1. Cargar datos existentes
-    res = supabase.table("weekly_meals").select("*").eq("household_id", household_id).execute()
+    # 1. Casilla de integración en el hogar
+    if st.session_state.household_id and st.session_state.household_id != "personal":
+        es_comun = st.checkbox("🏠 Menú compartido con el hogar", value=True)
+        target_id = str(st.session_state.household_id) if es_comun else str(st.session_state.user.id)
+    else:
+        target_id = str(st.session_state.user.id)
+        st.caption("👤 Menú Personal (Únete a un hogar para compartir)")
+    
+    # 2. Cargar datos existentes según la selección
+    res = supabase.table("weekly_meals").select("*").eq("household_id", target_id).execute()
     menu_db = {f"{m['day_of_week']}_{m['meal_type']}": m['dish_name'] for m in res.data}
     
-    # 2. Interfaz del Menú
+    # 3. Interfaz del Menú
     with st.form("menu_form"):
         col_comida, col_cena = st.columns(2)
         
@@ -46,7 +53,7 @@ def render_ui():
             for dia in dias_semana:
                 for tipo in ["Comida", "Cena"]:
                     data_to_upsert.append({
-                        "household_id": household_id,
+                        "household_id": target_id,
                         "day_of_week": dia,
                         "meal_type": tipo,
                         "dish_name": nuevos_platos[f"{dia}_{tipo}"]
@@ -57,7 +64,7 @@ def render_ui():
 
     st.divider()
 
-    # 3. Generación de Lista con IA
+    # 4. Generación de Lista con IA
     if st.button("🛒 Extraer Lista de la Compra con IA", type="primary", use_container_width=True):
         if "GEMINI_API_KEY" not in st.secrets:
             st.error("Falta configurar GEMINI_API_KEY en secrets.toml")
@@ -86,7 +93,6 @@ def render_ui():
                 response = model.generate_content(prompt)
                 lista_final = response.text
                 
-                # Crear Word y mostrar botón de descarga
                 word_file = generate_word_document(lista_final)
                 
                 st.success("¡Lista generada!")
@@ -102,4 +108,7 @@ def render_ui():
                     st.write(lista_final)
                     
             except Exception as e:
-                st.error(f"Error al conectar con la IA: {e}")
+                if "429" in str(e) or "Quota exceeded" in str(e):
+                    st.warning("⏳ Límite de consultas gratuitas alcanzado. Espera un minuto y vuelve a darle al botón.")
+                else:
+                    st.error(f"Error al conectar con la IA: {e}")
