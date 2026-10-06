@@ -104,7 +104,7 @@ def actualizar_ahorros(user_id, diff):
 def add_transaction_form():
     with st.container(border=True):
         with st.form("transaction_form", clear_on_submit=True):
-            tipo = st.radio("Tipo de movimiento", ["gasto", "ingreso"], horizontal=True)
+            tipo = st.radio("Tipo de movimiento", ["Gasto", "Ingreso"], horizontal=True)
             
             col1, col2 = st.columns(2)
             with col1:
