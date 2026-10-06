@@ -168,15 +168,20 @@ def render_personal_finances():
     res = supabase.table("transactions").select("*").eq("user_id", st.session_state.user.id).gte("created_at", fecha_inicio).lte("created_at", fecha_fin).execute()
     movs = res.data
     
-    # Balance Real (Incluye préstamos y deudas para reflejar liquidez real en cuenta)
-    ingresos = sum(m['amount'] for m in movs if m['type'] == 'ingreso')
-    gastos = sum(m['amount'] for m in movs if m['type'] == 'gasto')
-    balance = ingresos - gastos
+    categorias_tecnicas = ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]
+    
+    # 1. Filtramos los movimientos para dejar solo el consumo e ingresos reales
+    movs_reales = [m for m in movs if m['category'] not in categorias_tecnicas]
+    
+    # 2. Sumamos solo las cantidades reales
+    ingresos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'ingreso')
+    gastos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'gasto')
+    balance_real = ingresos_reales - gastos_reales
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Ingresos/Entradas", f"{ingresos:.2f} €")
-    col2.metric("Gastos/Salidas", f"{gastos:.2f} €")
-    col3.metric("Neto (Liquidez)", f"{balance:.2f} €", delta=f"{balance:.2f} €")
+    col1.metric("Ingresos Reales", f"{ingresos_reales:.2f} €")
+    col2.metric("Gastos Reales", f"{gastos_reales:.2f} €")
+    col3.metric("Balance Real", f"{balance_real:.2f} €", delta=f"{balance_real:.2f} €")
     
     # Filtrar categorías técnicas para las gráficas de consumo real
     categorias_tecnicas = ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]
