@@ -22,7 +22,7 @@ def inject_pwa_manifest():
                     const newManifest = parentDoc.createElement('link');
                     newManifest.id = 'pwa-manifest';
                     newManifest.rel = 'manifest';
-                    newManifest.href = '/app/static/assets/manifest.json';
+                    newManifest.href = '/app/static/assets/manifest.json?v=2';
                     parentDoc.head.appendChild(newManifest);
                 }
 
