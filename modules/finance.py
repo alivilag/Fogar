@@ -261,10 +261,11 @@ def render_personal_finances():
             st.bar_chart(df_anual)
 
     with st.expander("Ver lista de movimientos"):
-        for m in sorted(movs_reales, key=lambda x: x['created_at'], reverse=True): # Iteramos sobre reales para ocultar los técnicos
+        for m in sorted(movs_reales, key=lambda x: x['created_at'], reverse=True):
             icon = "🔴" if m['type'] == "gasto" else "🟢"
             fecha_corta = m['created_at'][:10]
-            st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {m['amount']} €")
+            cantidad = f"{m['amount']:.2f}".replace('.', ',')
+            st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {cantidad} €")
 
 def render_savings():
     st.subheader("Mis Cuentas de Ahorro")
@@ -456,4 +457,5 @@ def render_household_finances():
             for clave, data in sorted(tickets.items(), key=lambda x: x[0], reverse=True):
                 if data["pagador"]:
                     fecha_corta = clave[:10]
-                    st.write(f"*{fecha_corta}* - **{miembros[data['pagador']]}** pagó {data['total']:.2f} € en *{data['desc']}*")
+                    cantidad = f"{data['total']:.2f}".replace('.', ',')
+                    st.write(f"*{fecha_corta}* - **{miembros[data['pagador']]}** pagó {cantidad} € en *{data['desc']}*")
