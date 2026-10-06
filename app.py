@@ -24,7 +24,7 @@ st.markdown("""
     .stButton>button { 
         width: 100%; 
         border-radius: 24px; 
-        height: 4em; 
+        height: 5em; 
         font-weight: 600; 
         font-size: 1.05em; 
         background-color: #FFFFFF;
@@ -97,24 +97,42 @@ def main():
         show_module(st.session_state.current_page)
 
 def show_home_dashboard():
-    st.caption(f"Actualmente en: **{st.session_state.household_name}**")
-    st.title("Nuestra Casa")
-    st.write("¿Qué necesitas hacer? (Sin presiones)")
+    # Encabezado visual e intuitivo
+    st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #FF9999; margin-bottom: 2rem;'>¿Qué necesitas hacer? ✨</h1>", unsafe_allow_html=True)
     
+    # 1. Bloque de Convivencia
+    st.markdown("<h4 style='color: #4A4A4A; font-weight: 600;'>🏠 Gestión de Casa</h4>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Tareas"): st.session_state.current_page = "tasks"; st.rerun()
-        if st.button("🍽️ Comidas"): st.session_state.current_page = "meals"; st.rerun()
-        if st.button("📥 Descarga"): st.session_state.current_page = "brain_dump"; st.rerun()
     with col2:
+        if st.button("🍽️ Comidas"): st.session_state.current_page = "meals"; st.rerun()
+        
+    # 2. Bloque Personal
+    st.markdown("<br><h4 style='color: #4A4A4A; font-weight: 600;'>👤 Área Personal</h4>", unsafe_allow_html=True)
+    col3, col4 = st.columns(2)
+    with col3:
         if st.button("💰 Finanzas"): st.session_state.current_page = "finance"; st.rerun()
+    with col4:
         if st.button("🩸 Ciclo"): st.session_state.current_page = "cycle"; st.rerun()
+        
+    # 3. Bloque de Bienestar y Configuración
+    st.markdown("<br><h4 style='color: #4A4A4A; font-weight: 600;'>🍃 Bienestar y Ajustes</h4>", unsafe_allow_html=True)
+    col5, col6 = st.columns(2)
+    with col5:
+        if st.button("📥 Descarga"): st.session_state.current_page = "brain_dump"; st.rerun()
+    with col6:
         if st.button("👥 Mis Hogares"): st.session_state.current_page = "households"; st.rerun()
     
     st.divider()
-    if st.button("Cerrar Sesión", type="secondary"):
-        for key in list(st.session_state.keys()): del st.session_state[key]
-        st.rerun()
+    
+    # Centrar y reducir el impacto visual del botón de salida
+    _, col_exit, _ = st.columns([1, 2, 1])
+    with col_exit:
+        if st.button("Cerrar Sesión", type="secondary"):
+            for key in list(st.session_state.keys()): del st.session_state[key]
+            st.rerun()
 
 def show_module(page):
     if st.button("⬅️ Volver al menú", type="secondary"):
