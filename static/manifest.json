@@ -1,8 +1,9 @@
 {
-  "name": "Nuestra Casa",
-  "short_name": "Casa",
-  "description": "Gestor de convivencia libre de fricción",
+  "name": "Fogar",
+  "short_name": "Fogar",
+  "description": "Gestor de convivencia",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#FF9999",
