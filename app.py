@@ -80,7 +80,14 @@ def main():
         auth.login_ui()
         return
 
-    # 2. Cargar hogar silenciosamente en segundo plano (si existe)
+    # 2. Cargar datos de usuario y hogar silenciosamente
+    if "user_name" not in st.session_state:
+        try:
+            user_res = supabase.table("users").select("name").eq("id", st.session_state.user.id).execute()
+            st.session_state.user_name = user_res.data[0]['name'] if user_res.data else "Usuario"
+        except Exception:
+            st.session_state.user_name = "Usuario"
+
     if st.session_state.household_id is None:
         try:
             user_hhs = supabase.table("household_members").select("household_id, households(name)").eq("user_id", st.session_state.user.id).execute()
@@ -88,7 +95,7 @@ def main():
                 st.session_state.household_id = user_hhs.data[0]['household_id']
                 st.session_state.household_name = f"Hogar: {user_hhs.data[0]['households']['name']} 🏠"
             else:
-                st.session_state.household_id = "personal" # Marca para saber que ya comprobamos
+                st.session_state.household_id = "personal" 
         except Exception:
             pass
 
@@ -101,7 +108,7 @@ def main():
 def show_home_dashboard():
     # Título compacto
     st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px; font-size: 0.9em;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1.5rem; margin-top: 0px;'>Fogar ✨</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center; color: #FF9999; margin-bottom: 1.5rem; margin-top: 0px;'>Hola, {st.session_state.user_name} ✨</h2>", unsafe_allow_html=True)
     
     # Cuadrícula 3x2 (3 columnas x 2 filas)
     col1, col2, col3 = st.columns(3)
