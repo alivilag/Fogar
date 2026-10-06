@@ -7,51 +7,6 @@ from modules import auth, brain_dump, finance, cycle, meals
 
 st.set_page_config(page_title="Fogar", page_icon="static/assets/icon-192.png", layout="centered", initial_sidebar_state="collapsed")
 
-def inject_pwa_manifest():
-    components.html(
-        """<script>
-            const parentDoc = window.parent.document;
-            
-            function enforcePWA() {
-                const badElements = parentDoc.querySelectorAll('link[rel="manifest"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-                badElements.forEach(el => el.remove());
-                
-                if (!parentDoc.querySelector('link[id="pwa-manifest"]')) {
-                    const newManifest = parentDoc.createElement('link');
-                    newManifest.id = 'pwa-manifest';
-                    newManifest.rel = 'manifest';
-                    // Llamada directa a GitHub Raw para evitar bloqueos del servidor de Streamlit
-                    newManifest.href = 'https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/manifest.json';
-                    parentDoc.head.appendChild(newManifest);
-                }
-
-                if (!parentDoc.querySelector('link[id="pwa-icon"]')) {
-                    const newIcon = parentDoc.createElement('link');
-                    newIcon.id = 'pwa-icon';
-                    newIcon.rel = 'shortcut icon';
-                    newIcon.href = 'https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-192.png';
-                    parentDoc.head.appendChild(newIcon);
-                    
-                    const appleIcon = parentDoc.createElement('link');
-                    appleIcon.id = 'pwa-apple';
-                    appleIcon.rel = 'apple-touch-icon';
-                    appleIcon.href = 'https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-192.png';
-                    parentDoc.head.appendChild(appleIcon);
-                }
-            }
-            
-            enforcePWA();
-            
-            const observer = new MutationObserver(enforcePWA);
-            observer.observe(parentDoc.head, { childList: true, subtree: true });
-
-            if ('serviceWorker' in window.parent.navigator) {
-                window.parent.navigator.serviceWorker.register('/app/static/assets/sw.js')
-                .catch(err => console.error('Error SW', err));
-            }
-        </script>""", height=0
-    )
-
 def main():
     inject_pwa_manifest()
     
