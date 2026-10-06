@@ -9,21 +9,21 @@ st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered
 
 def inject_pwa_manifest():
     manifest = {
-        "name": "Nuestra Casa",
-        "short_name": "Casa",
+        "name": "Fogar",
+        "short_name": "Fogar",
         "description": "Gestor de convivencia",
-        "start_url": "https://fogarapp.streamlit.app/",
+        "start_url": "/",
         "display": "standalone",
         "background_color": "#FFFFFF",
         "theme_color": "#FF9999",
         "icons": [
             {
-                "src": "https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-192.png",
+                "src": "/app/static/assets/icon-192.png",
                 "sizes": "192x192",
                 "type": "image/png"
             },
             {
-                "src": "https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-512.png",
+                "src": "/app/static/assets/icon-512.png",
                 "sizes": "512x512",
                 "type": "image/png"
             }
@@ -37,15 +37,33 @@ def inject_pwa_manifest():
         f"""<script>
             const parentDoc = window.parent.document;
             
-            // 1. Destruir los manifiestos por defecto de Streamlit
-            const oldManifests = parentDoc.querySelectorAll('link[rel="manifest"]');
-            oldManifests.forEach(el => el.remove());
+            // 1. Eliminar iconos y manifiesto por defecto de Streamlit
+            const oldElements = parentDoc.querySelectorAll('link[rel="manifest"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+            oldElements.forEach(el => el.remove());
             
-            // 2. Inyectar manifiesto en Base64 (evita problemas de rutas)
+            // 2. Inyectar el manifiesto en Base64
             const newManifest = parentDoc.createElement('link');
             newManifest.rel = 'manifest';
             newManifest.href = 'data:application/json;base64,{b64_manifest}';
             parentDoc.head.appendChild(newManifest);
+
+            // 3. Forzar los iconos en la cabecera principal
+            const newIcon = parentDoc.createElement('link');
+            newIcon.rel = 'shortcut icon';
+            newIcon.href = '/app/static/assets/icon-192.png';
+            parentDoc.head.appendChild(newIcon);
+
+            const appleIcon = parentDoc.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            appleIcon.href = '/app/static/assets/icon-192.png';
+            parentDoc.head.appendChild(appleIcon);
+
+            // 4. Registrar Service Worker para habilitar la instalación nativa
+            if ('serviceWorker' in window.parent.navigator) {{
+                window.parent.navigator.serviceWorker.register('/app/static/sw.js')
+                .then(reg => console.log('SW registrado', reg))
+                .catch(err => console.error('Error SW', err));
+            }}
         </script>""", height=0
     )
 
