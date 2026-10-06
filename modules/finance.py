@@ -80,9 +80,13 @@ def plot_pie_chart(data_dict, name_col, val_col):
         st.info("No hay datos suficientes para el gráfico.")
         return
     df = pd.DataFrame(list(data_dict.items()), columns=[name_col, val_col])
+    
+    # Paleta de colores pastel
+    colores_pastel = ['#FFB3BA', '#BAE1FF', '#BAFFC9', '#FFDFBA', '#E8BAFF', '#FFFFBA', '#FFD1DC', '#D0F0C0']
+    
     chart = alt.Chart(df).mark_arc(innerRadius=40).encode(
         theta=alt.Theta(field=val_col, type="quantitative"),
-        color=alt.Color(field=name_col, type="nominal"),
+        color=alt.Color(field=name_col, type="nominal", scale=alt.Scale(range=colores_pastel)),
         tooltip=[name_col, val_col]
     )
     st.altair_chart(chart, use_container_width=True)
@@ -282,7 +286,7 @@ def render_personal_finances():
                     
             df_anual = pd.DataFrame.from_dict(data_anual, orient='index')
             df_anual.index.name = 'Mes'
-            st.bar_chart(df_anual)
+            st.bar_chart(df_anual, color="#BAE1FF")  # Azul pastel
     # Este código va al mismo nivel de indentación que "if movs_reales:"
         
         # Extraer objetivo
@@ -357,7 +361,7 @@ def render_savings():
     if res_hist.data:
         df_hist = pd.DataFrame(res_hist.data)
         df_hist['date'] = pd.to_datetime(df_hist['date']).dt.strftime('%b %Y')
-        st.bar_chart(df_hist.set_index('date')['total_amount'])
+        st.bar_chart(df_hist.set_index('date')['total_amount'], color="#BAFFC9")  # Verde pastel
     else:
         st.info("El historial gráfico aparecerá aquí automáticamente al finalizar este mes.")
 
@@ -501,7 +505,7 @@ def render_household_finances():
                 mes_mov = int(clave[5:7])
                 data_comunes_anual[mes_mov] += d['total']
             df_comunes = pd.DataFrame(list(data_comunes_anual.items()), columns=["Mes", "Gasto (€)"]).set_index("Mes")
-            st.bar_chart(df_comunes)
+            st.bar_chart(df_comunes, color="#FFB3BA")  # Rosa pastel
 
         with st.expander("Ver lista de gastos comunes"):
             for clave, data in sorted(tickets.items(), key=lambda x: x[0], reverse=True):
