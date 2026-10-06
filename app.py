@@ -5,49 +5,24 @@ import streamlit.components.v1 as components
 from utils.db import supabase
 from modules import auth, brain_dump, finance, cycle, meals
 
-st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Fogar", page_icon="static/assets/icon-192.png", layout="centered", initial_sidebar_state="collapsed")
 
 def inject_pwa_manifest():
-    manifest = {
-        "name": "Fogar",
-        "short_name": "Fogar",
-        "description": "Gestor de convivencia",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#FFFFFF",
-        "theme_color": "#FF9999",
-        "icons": [
-            {
-                "src": "/app/static/assets/icon-192.png",
-                "sizes": "192x192",
-                "type": "image/png"
-            },
-            {
-                "src": "/app/static/assets/icon-512.png",
-                "sizes": "512x512",
-                "type": "image/png"
-            }
-        ]
-    }
-    
-    manifest_json = json.dumps(manifest)
-    b64_manifest = base64.b64encode(manifest_json.encode()).decode()
-    
     components.html(
-        f"""<script>
+        """<script>
             const parentDoc = window.parent.document;
             
-            // 1. Eliminar iconos y manifiesto por defecto de Streamlit
+            // 1. Destruir manifiestos e iconos por defecto de Streamlit
             const oldElements = parentDoc.querySelectorAll('link[rel="manifest"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
             oldElements.forEach(el => el.remove());
             
-            // 2. Inyectar el manifiesto en Base64
+            // 2. Enlazar el manifest físico real (evita Base64 para no romper rutas en móviles)
             const newManifest = parentDoc.createElement('link');
             newManifest.rel = 'manifest';
-            newManifest.href = 'data:application/json;base64,{b64_manifest}';
+            newManifest.href = '/app/static/assets/manifest.json';
             parentDoc.head.appendChild(newManifest);
 
-            // 3. Forzar los iconos en la cabecera principal
+            // 3. Forzar iconos nativos en la cabecera
             const newIcon = parentDoc.createElement('link');
             newIcon.rel = 'shortcut icon';
             newIcon.href = '/app/static/assets/icon-192.png';
@@ -58,12 +33,12 @@ def inject_pwa_manifest():
             appleIcon.href = '/app/static/assets/icon-192.png';
             parentDoc.head.appendChild(appleIcon);
 
-            // 4. Registrar Service Worker para habilitar la instalación nativa
-            if ('serviceWorker' in window.parent.navigator) {{
-                window.parent.navigator.serviceWorker.register('/app/static/sw.js')
+            // 4. Registrar Service Worker con la ruta exacta dentro de assets/
+            if ('serviceWorker' in window.parent.navigator) {
+                window.parent.navigator.serviceWorker.register('/app/static/assets/sw.js')
                 .then(reg => console.log('SW registrado', reg))
                 .catch(err => console.error('Error SW', err));
-            }}
+            }
         </script>""", height=0
     )
 
