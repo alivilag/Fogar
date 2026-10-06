@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+import base64
 import streamlit.components.v1 as components
 from utils.db import supabase
 from modules import auth, brain_dump, finance, cycle, meals
@@ -6,82 +8,46 @@ from modules import auth, brain_dump, finance, cycle, meals
 st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered", initial_sidebar_state="collapsed")
 
 def inject_pwa_manifest():
+    manifest = {
+        "name": "Nuestra Casa",
+        "short_name": "Casa",
+        "description": "Gestor de convivencia",
+        "start_url": "https://fogarapp.streamlit.app/",
+        "display": "standalone",
+        "background_color": "#FFFFFF",
+        "theme_color": "#FF9999",
+        "icons": [
+            {
+                "src": "https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": "https://raw.githubusercontent.com/alivilag/Fogar/main/static/assets/icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    }
+    
+    manifest_json = json.dumps(manifest)
+    b64_manifest = base64.b64encode(manifest_json.encode()).decode()
+    
     components.html(
-        """<script>
-            const parent = window.parent;
-            const parentDoc = parent.document;
+        f"""<script>
+            const parentDoc = window.parent.document;
             
-            // 1. Sobrescribir el manifest de Streamlit si existe, o crearlo si no
-            let manifestLink = parentDoc.querySelector('link[rel="manifest"]');
-            if (manifestLink) {
-                manifestLink.href = '/app/static/manifest.json';
-            } else {
-                manifestLink = parentDoc.createElement('link'); 
-                manifestLink.rel = 'manifest';
-                manifestLink.href = '/app/static/manifest.json'; 
-                parentDoc.head.appendChild(manifestLink);
-            }
+            // 1. Destruir los manifiestos por defecto de Streamlit
+            const oldManifests = parentDoc.querySelectorAll('link[rel="manifest"]');
+            oldManifests.forEach(el => el.remove());
             
-            // 2. Registrar Service Worker
-            if ('serviceWorker' in parent.navigator) {
-                parent.navigator.serviceWorker.register('/app/static/sw.js');
-            }
+            // 2. Inyectar manifiesto en Base64 (evita problemas de rutas)
+            const newManifest = parentDoc.createElement('link');
+            newManifest.rel = 'manifest';
+            newManifest.href = 'data:application/json;base64,{b64_manifest}';
+            parentDoc.head.appendChild(newManifest);
         </script>""", height=0
     )
-
-st.markdown("""
-    <style>
-    /* Ocultar elementos por defecto de Streamlit para más limpieza */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {background-color: transparent !important;}
-
-    /* Botones minimalistas, redondeados y con sombras suaves */
-    .stButton>button { 
-        width: 100%; 
-        border-radius: 20px; 
-        height: 5.5em; 
-        font-weight: 600; 
-        font-size: 1.1em; 
-        background-color: #FFFFFF;
-        border: 2px solid #F4F6F9;
-        color: #555555;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-        transition: all 0.2s ease-in-out;
-        white-space: pre-wrap; /* Permite saltos de línea */
-        line-height: 1.3;
-    }
-    .stButton>button:hover { 
-        transform: translateY(-2px); 
-        border-color: #FF9999; 
-        color: #FF9999;
-        box-shadow: 0 6px 15px rgba(255,153,153,0.15);
-    }
-
-    /* Tarjetas y formularios más limpios */
-    div[data-testid="stForm"], div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF;
-        border-radius: 20px;
-        border: 1px solid #F0F2F6;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.02);
-        padding: 1.5rem;
-    }
-
-    /* Pestañas (Tabs) con diseño aireado */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 1.5rem;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 3rem;
-        border-radius: 12px 12px 0 0;
-    }
-
-    /* Campos de entrada redondeados */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input {
-        border-radius: 12px;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 def main():
     inject_pwa_manifest()
