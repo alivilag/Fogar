@@ -64,6 +64,24 @@ st.markdown("""
     .stTextInput>div>div>input, .stNumberInput>div>div>input {
         border-radius: 12px;
     }
+    /* Forzar cuadrícula en móviles y estandarizar tamaño */
+    @media (max-width: 768px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.5rem !important;
+        }
+        [data-testid="column"] {
+            width: 33.33% !important;
+            flex: 1 1 33.33% !important;
+            min-width: 30% !important;
+        }
+        .stButton>button {
+            font-size: 0.85em !important; /* Ajuste para que quepa el texto */
+            height: 6em !important;
+            padding: 0.5rem !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -101,25 +119,26 @@ def main():
 def show_home_dashboard():
     # Título compacto
     st.markdown(f"<p style='text-align: center; color: #b3b3b3; margin-bottom: -15px; font-size: 0.9em;'>{st.session_state.household_name}</p>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1rem; margin-top: 0px;'>Nuestra Casa ✨</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #FF9999; margin-bottom: 1.5rem; margin-top: 0px;'>Nuestra Casa ✨</h2>", unsafe_allow_html=True)
     
-    # Cuadrícula 2x3 estilo App Móvil
-    col1, col2 = st.columns(2)
+    # Cuadrícula 3x2 (3 columnas x 2 filas)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("✅\nTareas"): st.session_state.current_page = "tasks"; st.rerun()
-        if st.button("💰\nFinanzas"): st.session_state.current_page = "finance"; st.rerun()
-        if st.button("📥\nDescarga"): st.session_state.current_page = "brain_dump"; st.rerun()
+        if st.button("✅\nTareas", use_container_width=True): st.session_state.current_page = "tasks"; st.rerun()
+        if st.button("💰\nFinanzas", use_container_width=True): st.session_state.current_page = "finance"; st.rerun()
     with col2:
-        if st.button("🍽️\nComidas"): st.session_state.current_page = "meals"; st.rerun()
-        if st.button("🩸\nCiclo"): st.session_state.current_page = "cycle"; st.rerun()
-        if st.button("👥\nHogares"): st.session_state.current_page = "households"; st.rerun()
+        if st.button("🍽️\nComidas", use_container_width=True): st.session_state.current_page = "meals"; st.rerun()
+        if st.button("🩸\nCiclo", use_container_width=True): st.session_state.current_page = "cycle"; st.rerun()
+    with col3:
+        if st.button("📥\nDescarga", use_container_width=True): st.session_state.current_page = "brain_dump"; st.rerun()
+        if st.button("👥\nHogares", use_container_width=True): st.session_state.current_page = "households"; st.rerun()
     
     st.divider()
     
-    # Salida discreta
+    # Salida discreta centrada
     _, col_exit, _ = st.columns([1, 2, 1])
     with col_exit:
-        if st.button("Cerrar Sesión", type="secondary"):
+        if st.button("Cerrar Sesión", type="secondary", use_container_width=True):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
 
