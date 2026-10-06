@@ -73,7 +73,7 @@ def render_ui():
         with st.spinner("Analizando recetas y organizando pasillos..."):
             try:
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-pro')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 prompt = f"""
                 A partir de la siguiente lista de platos, extrae los ingredientes necesarios para hacer la compra.
