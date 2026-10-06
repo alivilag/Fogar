@@ -15,12 +15,17 @@ def login_ui():
                     res = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     st.session_state.user = res.user
                     
-                    # Parche: Garantizar que el usuario existe en la tabla pública al loguearse
+                    # Parche original: Garantizar que el usuario existe
                     supabase.table("users").upsert({
                         "id": res.user.id, 
                         "name": email.split('@')[0]
                     }).execute()
                     
+                    # NUEVO: Cargar nombre real del usuario en la sesión para usarlo en toda la app
+                    user_res = supabase.table("users").select("name").eq("id", res.user.id).execute()
+                    if user_res.data:
+                        st.session_state.user_name = user_res.data[0]['name']
+                        
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error detallado: {e}")
@@ -34,7 +39,7 @@ def login_ui():
                 try:
                     res = supabase.auth.sign_up({"email": email, "password": password})
                     if res.user:
-                        # Usamos upsert para evitar errores de duplicidad si el registro falló antes a medias
+                        # Usamos upsert original
                         supabase.table("users").upsert({
                             "id": res.user.id, 
                             "name": name
@@ -46,13 +51,42 @@ def login_ui():
 def household_ui():
     st.header("Gestión de Hogares 🏘️")
     
-    # Si el usuario ya está en un hogar, le mostramos el código para invitar a su pareja
+    # Si el usuario ya está en un hogar
     if st.session_state.household_id and st.session_state.household_id != "personal":
         st.success("Ya perteneces a un hogar.")
+        
+        # Obtener nombre actual del hogar para la edición
+        hh_res = supabase.table("households").select("name").eq("id", st.session_state.household_id).execute()
+        hh_name = hh_res.data[0]['name'] if hh_res.data else "Mi Hogar"
+        
+        # NUEVO: Editar Nombre del Hogar
+        with st.expander("✏️ Editar nombre del hogar"):
+            with st.form("edit_hh_name"):
+                new_name = st.text_input("Nuevo nombre", value=hh_name)
+                if st.form_submit_button("Actualizar Nombre"):
+                    supabase.table("households").update({"name": new_name}).eq("id", st.session_state.household_id).execute()
+                    st.session_state.household_name = f"Hogar: {new_name} 🏠"
+                    st.success("Nombre actualizado.")
+                    st.rerun()
+                    
+        # ORIGINAL: Compartir código de invitación
         st.write("Comparte este **Código de Invitación** con tu pareja para que se una:")
         st.code(st.session_state.household_id)
-        return
+        
+        st.divider()
+        
+        # NUEVO: Ver usuarios que lo forman
+        st.write("**Miembros actuales:**")
+        members_res = supabase.table("household_members").select("user_id, users(name)").eq("household_id", st.session_state.household_id).execute()
+        
+        for member in members_res.data:
+            nombre = member['users']['name']
+            is_me = " (Tú)" if member['user_id'] == st.session_state.user.id else ""
+            st.markdown(f"- 👤 **{nombre}**{is_me}")
+            
+        return # Cortamos aquí para que no salgan las pestañas de crear/unirse
 
+    # Si no tiene hogar, mostramos la lógica original de creación y unión
     st.write("Crea un espacio nuevo o únete al de tu pareja.")
     
     tab_create, tab_join = st.tabs(["Crear Hogar", "Unirse con Código"])
