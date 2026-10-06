@@ -16,4 +16,4 @@ RUN python inject_pwa.py
 EXPOSE 8501
 
 # Iniciar la aplicación
-CMD ["streamlit", "run", "utils/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
