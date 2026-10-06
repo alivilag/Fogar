@@ -12,31 +12,46 @@ def inject_pwa_manifest():
         """<script>
             const parentDoc = window.parent.document;
             
-            // 1. Destruir manifiestos e iconos por defecto de Streamlit
-            const oldElements = parentDoc.querySelectorAll('link[rel="manifest"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-            oldElements.forEach(el => el.remove());
+            function enforcePWA() {
+                // 1. Destruir iconos por defecto inyectados por Streamlit (ignorando los nuestros)
+                const badIcons = parentDoc.querySelectorAll('link[rel="shortcut icon"]:not([id="pwa-icon"]), link[rel="apple-touch-icon"]:not([id="pwa-apple"])');
+                badIcons.forEach(el => el.remove());
+                
+                // 2. Forzar enlace permanente a nuestro manifest
+                if (!parentDoc.querySelector('link[id="pwa-manifest"]')) {
+                    const newManifest = parentDoc.createElement('link');
+                    newManifest.id = 'pwa-manifest';
+                    newManifest.rel = 'manifest';
+                    newManifest.href = '/app/static/assets/manifest.json';
+                    parentDoc.head.appendChild(newManifest);
+                }
+
+                // 3. Forzar enlace permanente a nuestros iconos
+                if (!parentDoc.querySelector('link[id="pwa-icon"]')) {
+                    const newIcon = parentDoc.createElement('link');
+                    newIcon.id = 'pwa-icon';
+                    newIcon.rel = 'shortcut icon';
+                    newIcon.href = '/app/static/assets/icon-192.png';
+                    parentDoc.head.appendChild(newIcon);
+                    
+                    const appleIcon = parentDoc.createElement('link');
+                    appleIcon.id = 'pwa-apple';
+                    appleIcon.rel = 'apple-touch-icon';
+                    appleIcon.href = '/app/static/assets/icon-192.png';
+                    parentDoc.head.appendChild(appleIcon);
+                }
+            }
             
-            // 2. Enlazar el manifest físico real (evita Base64 para no romper rutas en móviles)
-            const newManifest = parentDoc.createElement('link');
-            newManifest.rel = 'manifest';
-            newManifest.href = '/app/static/assets/manifest.json';
-            parentDoc.head.appendChild(newManifest);
+            // Ejecutar el reemplazo inmediatamente
+            enforcePWA();
+            
+            // Iniciar el vigilante: si Streamlit modifica el <head>, se vuelve a ejecutar enforcePWA
+            const observer = new MutationObserver(enforcePWA);
+            observer.observe(parentDoc.head, { childList: true, subtree: true });
 
-            // 3. Forzar iconos nativos en la cabecera
-            const newIcon = parentDoc.createElement('link');
-            newIcon.rel = 'shortcut icon';
-            newIcon.href = '/app/static/assets/icon-192.png';
-            parentDoc.head.appendChild(newIcon);
-
-            const appleIcon = parentDoc.createElement('link');
-            appleIcon.rel = 'apple-touch-icon';
-            appleIcon.href = '/app/static/assets/icon-192.png';
-            parentDoc.head.appendChild(appleIcon);
-
-            // 4. Registrar Service Worker con la ruta exacta dentro de assets/
+            // Registrar el Service Worker silenciosamente
             if ('serviceWorker' in window.parent.navigator) {
                 window.parent.navigator.serviceWorker.register('/app/static/assets/sw.js')
-                .then(reg => console.log('SW registrado', reg))
                 .catch(err => console.error('Error SW', err));
             }
         </script>""", height=0
