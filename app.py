@@ -7,9 +7,7 @@ from modules import auth, brain_dump, finance, cycle, meals
 
 st.set_page_config(page_title="Fogar", page_icon="static/assets/icon-192.png", layout="centered", initial_sidebar_state="collapsed")
 
-def main():
-    inject_pwa_manifest()
-    
+def main():  
     if "user" not in st.session_state: st.session_state.user = None
     if "current_page" not in st.session_state: st.session_state.current_page = "home"
     if "household_id" not in st.session_state: st.session_state.household_id = None
