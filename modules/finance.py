@@ -357,7 +357,7 @@ def render_savings():
     if res_hist.data:
         df_hist = pd.DataFrame(res_hist.data)
         df_hist['date'] = pd.to_datetime(df_hist['date']).dt.strftime('%b %Y')
-        st.line_chart(df_hist.set_index('date')['total_amount'])
+        st.bar_chart(df_hist.set_index('date')['total_amount'])
     else:
         st.info("El historial gráfico aparecerá aquí automáticamente al finalizar este mes.")
 
