@@ -15,8 +15,53 @@ def inject_pwa_manifest():
 
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 16px; height: 4em; font-weight: bold; font-size: 1.1em; }
-    .stButton>button:hover { transform: scale(1.02); border-color: #FF4B4B; }
+    /* Ocultar elementos por defecto de Streamlit para más limpieza */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {background-color: transparent !important;}
+
+    /* Botones minimalistas, redondeados y con sombras suaves */
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 24px; 
+        height: 4em; 
+        font-weight: 600; 
+        font-size: 1.05em; 
+        background-color: #FFFFFF;
+        border: 2px solid #F4F6F9;
+        color: #555555;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        transition: all 0.2s ease-in-out;
+    }
+    .stButton>button:hover { 
+        transform: translateY(-2px); 
+        border-color: #FF9999; 
+        color: #FF9999;
+        box-shadow: 0 6px 15px rgba(255,153,153,0.15);
+    }
+
+    /* Tarjetas y formularios más limpios */
+    div[data-testid="stForm"], div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF;
+        border-radius: 20px;
+        border: 1px solid #F0F2F6;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.02);
+        padding: 1.5rem;
+    }
+
+    /* Pestañas (Tabs) con diseño aireado */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1.5rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 3rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    /* Campos de entrada redondeados */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input {
+        border-radius: 12px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
