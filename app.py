@@ -8,12 +8,20 @@ st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered
 def inject_pwa_manifest():
     components.html(
         """<script>
-            const parentDoc = window.parent.document;
+            const parent = window.parent;
+            const parentDoc = parent.document;
+            
+            // Inyectar Manifest
             if (!parentDoc.querySelector('link[rel="manifest"]')) {
                 const link = parentDoc.createElement('link'); 
                 link.rel = 'manifest';
                 link.href = '/app/static/manifest.json'; 
                 parentDoc.head.appendChild(link);
+            }
+            
+            // Registrar Service Worker
+            if ('serviceWorker' in parent.navigator) {
+                parent.navigator.serviceWorker.register('/app/static/sw.js');
             }
         </script>""", height=0
     )
