@@ -119,7 +119,7 @@ def add_transaction_form():
             fecha_input = st.date_input("Fecha del movimiento", value=date.today())
             
             is_common = False
-            if tipo == "gasto" and st.session_state.household_id and st.session_state.household_id != "personal":
+            if tipo == "Gasto" and st.session_state.household_id and st.session_state.household_id != "personal":
                 is_common = st.checkbox("🏠 Es un gasto común (pagado por mí, pero a dividir)")
             
             if st.form_submit_button("Guardar Movimiento", use_container_width=True):
@@ -151,14 +151,14 @@ def add_transaction_form():
                         res_prev = supabase.table("transactions").select("user_id, amount, type, category").in_("user_id", miembros).gte("created_at", inicio_prev).lte("created_at", fin_prev).execute()
                         
                         if split_mode == 'Proporcional a ingresos del mes anterior':
-                            ing_my = sum(t['amount'] for t in res_prev.data if t['user_id'] == my_id and t['type'] == 'ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
-                            ing_tot = sum(t['amount'] for t in res_prev.data if t['type'] == 'ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
+                            ing_my = sum(t['amount'] for t in res_prev.data if t['user_id'] == my_id and t['type'] == 'Ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
+                            ing_tot = sum(t['amount'] for t in res_prev.data if t['type'] == 'Ingreso' and t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"])
                             my_pct = (ing_my / ing_tot * 100) if ing_tot > 0 else 50.0
                         else:
                             balances = {u: 0.0 for u in miembros}
                             for t in res_prev.data:
                                 if t['category'] not in ["Cuentas por cobrar", "Cuentas por pagar", "Liquidación"]:
-                                    diff = t['amount'] if t['type'] == 'ingreso' else -t['amount']
+                                    diff = t['amount'] if t['type'] == 'Ingreso' else -t['amount']
                                     balances[t['user_id']] += diff
                             
                             val_my = max(0, balances[my_id])
@@ -174,17 +174,17 @@ def add_transaction_form():
                     data_list = []
                     # 1. Gasto real del pagador
                     if my_amount > 0:
-                        data_list.append({"user_id": my_id, "type": "gasto", "amount": my_amount, "category": category, "description": description, "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                        data_list.append({"user_id": my_id, "type": "Gasto", "amount": my_amount, "category": category, "description": description, "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
                     
                     # 2. Préstamo a terceros (baja liquidez del pagador, no afecta gráficas consumo)
                     if other_amount > 0:
-                        data_list.append({"user_id": my_id, "type": "gasto", "amount": other_amount, "category": "Cuentas por cobrar", "description": f"Préstamo a la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                        data_list.append({"user_id": my_id, "type": "Gasto", "amount": other_amount, "category": "Cuentas por cobrar", "description": f"Préstamo a la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
                         
                         for o_id in other_ids:
                             # 3. Gasto real del no-pagador (se añade automáticamente a su consumo)
-                            data_list.append({"user_id": o_id, "type": "gasto", "amount": other_amount, "category": category, "description": f"{description} (Adelantado por compañer@)", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                            data_list.append({"user_id": o_id, "type": "Gasto", "amount": other_amount, "category": category, "description": f"{description} (Adelantado por compañer@)", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
                             # 4. Deuda del no-pagador (Ingreso ficticio para mantener su liquidez intacta hasta que pague)
-                            data_list.append({"user_id": o_id, "type": "ingreso", "amount": other_amount, "category": "Cuentas por pagar", "description": f"Deuda con la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
+                            data_list.append({"user_id": o_id, "type": "Ingreso", "amount": other_amount, "category": "Cuentas por pagar", "description": f"Deuda con la casa por {description}", "is_common": True, "household_id": st.session_state.household_id, "created_at": created_at})
                     
                     try:
                         supabase.table("transactions").insert(data_list).execute()
@@ -207,7 +207,7 @@ def add_transaction_form():
                     try:
                         supabase.table("transactions").insert(data).execute()
                         st.success("Movimiento registrado.")
-                        diff = amount if tipo == 'ingreso' else -amount
+                        diff = amount if tipo == 'Ingreso' else -amount
                         actualizar_ahorros(st.session_state.user.id, diff)
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
@@ -227,8 +227,8 @@ def render_personal_finances():
     movs_reales = [m for m in movs if m['category'] not in categorias_tecnicas]
     
     # 2. Sumamos solo las cantidades reales
-    ingresos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'ingreso')
-    gastos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'gasto')
+    ingresos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'Ingreso')
+    gastos_reales = sum(m['amount'] for m in movs_reales if m['type'] == 'Gasto')
     balance_real = ingresos_reales - gastos_reales
 
     col1, col2, col3 = st.columns(3)
@@ -248,7 +248,7 @@ def render_personal_finances():
                 if t['category'] == "Cuentas por cobrar": deuda_mia += t['amount']
                 elif t['category'] == "Cuentas por pagar": deuda_mia -= t['amount']
                 elif t['category'] == "Liquidación":
-                    deuda_mia += t['amount'] if t['type'] == 'gasto' else -t['amount']
+                    deuda_mia += t['amount'] if t['type'] == 'Gasto' else -t['amount']
         
         if deuda_mia > 0.01:
             st.caption(f"🟢 **Te deben {deuda_mia:.2f} €** en el hogar.")
@@ -264,13 +264,13 @@ def render_personal_finances():
             if tipo_grafico == "Gastos":
                 cat_gastos = {}
                 for m in movs_reales:
-                    if m['type'] == 'gasto':
+                    if m['type'] == 'Gasto':
                         cat_gastos[m['category']] = cat_gastos.get(m['category'], 0) + m['amount']
                 plot_pie_chart(cat_gastos, "Categoría", "Consumo (€)")
             else:
                 desc_ingresos = {}
                 for m in movs_reales:
-                    if m['type'] == 'ingreso':
+                    if m['type'] == 'Ingreso':
                         desc_ingresos[m['description']] = desc_ingresos.get(m['description'], 0) + m['amount']
                 plot_pie_chart(desc_ingresos, "Descripción", "Ingreso (€)")
         else:
@@ -279,7 +279,7 @@ def render_personal_finances():
             data_anual = {m: {'Neto': 0.0} for m in range(1, 13)}
             for m in movs_reales:
                 mes_mov = int(m['created_at'][5:7])
-                if m['type'] == 'ingreso':
+                if m['type'] == 'Ingreso':
                     data_anual[mes_mov]['Neto'] += m['amount']
                 else:
                     data_anual[mes_mov]['Neto'] -= m['amount']
@@ -306,7 +306,7 @@ def render_personal_finances():
             
     with st.expander("Ver lista de movimientos"):
         for m in sorted(movs_reales, key=lambda x: x['created_at'], reverse=True):
-            icon = "🔴" if m['type'] == "gasto" else "🟢"
+            icon = "🔴" if m['type'] == "Gasto" else "🟢"
             fecha_corta = m['created_at'][:10]
             cantidad = f"{m['amount']:.2f}".replace('.', ',')
             st.write(f"*{fecha_corta}* {icon} **{m['description']}** ({m['category']}): {cantidad} €")
@@ -424,8 +424,8 @@ def render_household_finances():
         if t['category'] == "Cuentas por cobrar": deudas_netas[u] += t['amount']
         elif t['category'] == "Cuentas por pagar": deudas_netas[u] -= t['amount']
         elif t['category'] == "Liquidación":
-            if t['type'] == 'ingreso': deudas_netas[u] -= t['amount']
-            elif t['type'] == 'gasto': deudas_netas[u] += t['amount']
+            if t['type'] == 'Ingreso': deudas_netas[u] -= t['amount']
+            elif t['type'] == 'Gasto': deudas_netas[u] += t['amount']
 
     st.subheader("📈 Balance de Deudas")
     for u in u_ids:
@@ -454,9 +454,9 @@ def render_household_finances():
                 if st.form_submit_button("Saldar Deuda"):
                     timestamp = datetime.now().isoformat()
                     # Salida de liquidez del deudor
-                    supabase.table("transactions").insert({"user_id": from_u, "type": "gasto", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación a {miembros[to_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
+                    supabase.table("transactions").insert({"user_id": from_u, "type": "Gasto", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación a {miembros[to_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
                     # Entrada de liquidez al acreedor
-                    supabase.table("transactions").insert({"user_id": to_u, "type": "ingreso", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación de {miembros[from_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
+                    supabase.table("transactions").insert({"user_id": to_u, "type": "Ingreso", "amount": settle_amount, "category": "Liquidación", "description": f"Liquidación de {miembros[from_u]}", "is_common": True, "household_id": st.session_state.household_id, "created_at": timestamp}).execute()
                     
                     actualizar_ahorros(from_u, -settle_amount)
                     actualizar_ahorros(to_u, settle_amount)
@@ -473,7 +473,7 @@ def render_household_finances():
     tickets = {}
     for t in res_trans.data:
         # Añadida condición para ignorar las liquidaciones de deudas
-        if t['type'] == 'gasto' and t['category'] != 'Liquidación':
+        if t['type'] == 'Gasto' and t['category'] != 'Liquidación':
             clave = t['created_at']
             if clave not in tickets:
                 tickets[clave] = {"pagador": None, "total": 0.0, "desc": "", "cat": ""}
