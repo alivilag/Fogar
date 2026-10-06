@@ -32,7 +32,7 @@ def render_ui():
         with col_comida:
             st.subheader("Comidas")
             for dia in dias_semana:
-                key = f"{dia}_Comida"3
+                key = f"{dia}_Comida"
                 nuevos_platos[key] = st.text_input(dia, value=menu_db.get(key, ""), key=key)
                 
         with col_cena:
