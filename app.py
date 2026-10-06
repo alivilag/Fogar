@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from utils.db import supabase
-from modules import auth, brain_dump
+from modules import auth, brain_dump, finance
 
 st.set_page_config(page_title="Nuestra Casa", page_icon="🏠", layout="centered", initial_sidebar_state="collapsed")
 
@@ -83,6 +83,8 @@ def show_module(page):
         brain_dump.render_ui()
     elif page == "households":
         auth.household_ui()
+    elif page == "finance":
+        finance.render_ui()
     else:
         st.info("Módulo en construcción 🛠️")
 
