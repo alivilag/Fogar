@@ -12,13 +12,10 @@ def render_ui():
     
     with tab_add:
         add_transaction_form()
-        
     with tab_personal:
         render_personal_finances()
-        
     with tab_savings:
         render_savings()
-        
     with tab_home:
         if st.session_state.household_id and st.session_state.household_id != "personal":
             render_household_finances()
