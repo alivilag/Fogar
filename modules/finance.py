@@ -91,15 +91,22 @@ def plot_pie_chart(data_dict, name_col, val_col):
     )
     st.altair_chart(chart, use_container_width=True)
 
-def actualizar_ahorros(user_id, diff):
-    res_savings = supabase.table("savings").select("*").eq("user_id", user_id).execute()
-    ahorros = res_savings.data
-    if len(ahorros) == 1:
-        new_amount = ahorros[0]['amount'] + diff
-        supabase.table("savings").update({"amount": new_amount}).eq("id", ahorros[0]['id']).execute()
-        st.info(f"Ahorros actualizados automáticamente: {new_amount:.2f} €")
-    elif len(ahorros) > 1:
-        st.warning("⚠️ Tienes varias cuentas de ahorro. Ajusta el saldo manualmente.")
+def actualizar_ahorros(user_id, diff, account_id=None):
+    if account_id:
+        res = supabase.table("savings").select("amount, account_name").eq("id", account_id).execute()
+        if res.data:
+            new_amount = res.data[0]['amount'] + diff
+            supabase.table("savings").update({"amount": new_amount}).eq("id", account_id).execute()
+            st.info(f"Cuenta '{res.data[0]['account_name']}' actualizada: {new_amount:.2f} €")
+    else:
+        res_savings = supabase.table("savings").select("*").eq("user_id", user_id).execute()
+        ahorros = res_savings.data
+        if len(ahorros) == 1:
+            new_amount = ahorros[0]['amount'] + diff
+            supabase.table("savings").update({"amount": new_amount}).eq("id", ahorros[0]['id']).execute()
+            st.info(f"Ahorros actualizados automáticamente: {new_amount:.2f} €")
+        elif len(ahorros) > 1:
+            st.warning("⚠️ Tienes varias cuentas. Ajusta el saldo manualmente para los movimientos de terceros.")
 
 def add_transaction_form():
     with st.container(border=True):
@@ -114,6 +121,16 @@ def add_transaction_form():
                 category = st.selectbox("Categoría", categorias)
             
             description = st.text_input("Descripción (Ej. Compra súper)")
+            
+            # --- NUEVO CÓDIGO: Selector de cuenta ---
+            res_savings = supabase.table("savings").select("id, account_name").eq("user_id", st.session_state.user.id).execute()
+            ahorros = res_savings.data
+            selected_account_id = None
+            
+            if ahorros:
+                opciones = {a['id']: a['account_name'] for a in ahorros}
+                selected_account_id = st.selectbox("Cuenta afectada", list(opciones.keys()), format_func=lambda x: opciones[x])
+            # ----------------------------------------
             
             # Fecha directa por defecto hoy
             fecha_input = st.date_input("Fecha del movimiento", value=date.today())
@@ -189,7 +206,7 @@ def add_transaction_form():
                     try:
                         supabase.table("transactions").insert(data_list).execute()
                         st.success("Gasto común dividido y registrado en todas las cuentas.")
-                        actualizar_ahorros(my_id, -amount) # Solo baja la liquidez real del que paga
+                        actualizar_ahorros(my_id, -amount, selected_account_id) # <- Cambio aquí
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
                 else:
@@ -208,7 +225,7 @@ def add_transaction_form():
                         supabase.table("transactions").insert(data).execute()
                         st.success("Movimiento registrado.")
                         diff = amount if tipo == 'ingreso' else -amount
-                        actualizar_ahorros(st.session_state.user.id, diff)
+                        actualizar_ahorros(st.session_state.user.id, diff, selected_account_id) # <- Cambio aquí
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
 
